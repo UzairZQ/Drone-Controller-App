@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_joystick/flutter_joystick.dart';
-import 'package:camera/camera.dart';
+import 'package:http/http.dart' as http;
 
 class ControlScreen extends StatefulWidget {
   @override
@@ -8,25 +8,39 @@ class ControlScreen extends StatefulWidget {
 }
 
 class _ControlScreenState extends State<ControlScreen> {
-  CameraController? _controller;
+  final String baseUrl =
+      'http://your_arduino_ip'; // Replace with your Arduino's IP address
+  final String cameraUrl =
+      'http://your_arduino_ip:81/stream'; // Replace with your camera stream URL
 
-  @override
-  void initState() {
-    super.initState();
-    _initializeCamera();
+  Future<void> _sendCommand(String command) async {
+    final response = await http.get(Uri.parse('$baseUrl/$command'));
+    if (response.statusCode == 200) {
+      print('Command sent successfully');
+    } else {
+      print('Failed to send command');
+    }
   }
 
-  Future<void> _initializeCamera() async {
-    final cameras = await availableCameras();
-    _controller = CameraController(cameras.first, ResolutionPreset.high);
-    await _controller!.initialize();
-    setState(() {});
+  void _handleVerticalJoystick(StickDragDetails details) {
+    if (details.y > 0.5) {
+      _sendCommand('up');
+    } else if (details.y < -0.5) {
+      _sendCommand('down');
+    }
   }
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
+  void _handleAllDirectionJoystick(StickDragDetails details) {
+    if (details.x > 0.5) {
+      _sendCommand('right');
+    } else if (details.x < -0.5) {
+      _sendCommand('left');
+    }
+    if (details.y > 0.5) {
+      _sendCommand('forward');
+    } else if (details.y < -0.5) {
+      _sendCommand('backward');
+    }
   }
 
   @override
@@ -36,25 +50,23 @@ class _ControlScreenState extends State<ControlScreen> {
       body: Column(
         children: [
           Expanded(
-            child: _controller != null && _controller!.value.isInitialized
-                ? CameraPreview(_controller!)
+            child: cameraUrl != null
+                ? Image.network(cameraUrl, fit: BoxFit.cover)
                 : Center(child: CircularProgressIndicator()),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               Joystick(
-                mode: JoystickMode.all,
+                mode: JoystickMode.vertical,
                 listener: (details) {
-                  // Send movement commands to the drone
-                  print('Joystick moved: ${details.x}, ${details.y}');
+                  _handleVerticalJoystick(details);
                 },
               ),
               Joystick(
                 mode: JoystickMode.all,
                 listener: (details) {
-                  // Send movement commands to the drone
-                  print('Joystick moved: ${details.x}, ${details.y}');
+                  _handleAllDirectionJoystick(details);
                 },
               ),
             ],

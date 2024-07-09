@@ -11,11 +11,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  wifi_iot: ^0.5.2
+  wifi_iot: ^0.3.19
   flutter_joystick: ^0.2.0  # For joystick controls
   flutter_spinkit: ^5.1.0  # For loading animations
   camera: ^0.11.0+1  # For camera feed
   permission_handler: ^10.0.0
+  http: ^1.2.1
+  esp_smartconfig: ^2.0.4
 
 dev_dependencies:
   flutter_test:

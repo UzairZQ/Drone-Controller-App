@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => SplashScreen(),
-        '/wifi': (context) => WiFiConnectionScreen(),
+        '/wifi': (context) => WifiConnectionScreen(title: 'Connect to Drone'),
         '/control': (context) => ControlScreen(),
       },
     );

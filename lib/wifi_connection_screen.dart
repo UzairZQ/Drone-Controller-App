@@ -1,60 +1,137 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:wifi_iot/wifi_iot.dart';
+import 'package:esp_smartconfig/esp_smartconfig.dart';
 
-class WiFiConnectionScreen extends StatefulWidget {
+class WifiConnectionScreen extends StatefulWidget {
+  const WifiConnectionScreen({ required this.title});
+
+  final String title;
+
   @override
-  _WiFiConnectionScreenState createState() => _WiFiConnectionScreenState();
+  State<WifiConnectionScreen> createState() => _WifiConnectionScreenState();
 }
 
-class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
-  List<WifiNetwork?> _wifiList = [];
+class _WifiConnectionScreenState extends State<WifiConnectionScreen> {
+  final ssidController = TextEditingController();
+  final passwordController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _checkPermissionsAndScan();
-  }
+  Future<void> _startProvisioning() async {
+    final provisioner = Provisioner.espTouch();
 
-  Future<void> _checkPermissionsAndScan() async {
-    if (await Permission.location.request().isGranted) {
-      _scanForWiFi();
-    } else {
-      // Handle permission denied
-      print('Location permission denied');
-      // Optionally, you can show a dialog or notification to the user explaining why the permission is needed
+    provisioner.listen((response) {
+      Navigator.of(context).pop(response);
+    });
+
+    provisioner.start(ProvisioningRequest.fromStrings(
+      ssid: ssidController.text,
+      bssid: '00:00:00:00:00:00',
+      password: passwordController.text,
+    ));
+
+    ProvisioningResponse? response = await showDialog<ProvisioningResponse>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Provisioning'),
+          content: const Text('Provisioning started. Please wait...'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Stop'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if(provisioner.running) {
+      provisioner.stop();
+    }
+
+    if (response != null) {
+      _onDeviceProvisioned(response);
     }
   }
 
-  Future<void> _scanForWiFi() async {
-    try {
-      List<WifiNetwork?> wifiList = await WiFiForIoTPlugin.loadWifiList();
-      setState(() {
-        _wifiList = wifiList;
-      });
-    } catch (e) {
-      print("Error scanning for Wi-Fi networks: $e");
-    }
+  _onDeviceProvisioned(ProvisioningResponse response) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Device provisioned'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text('Device successfully connected to the ${ssidController.text} network'),
+              SizedBox.fromSize(size: const Size.fromHeight(20)),
+              const Text('Device:'),
+              Text('IP: ${response.ipAddressText}'),
+              Text('BSSID: ${response.bssidText}'),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Wi-Fi Networks'),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                Icons.cell_tower,
+                size: 80,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              SizedBox.fromSize(size: const Size.fromHeight(20)),
+              const Text(
+                'Connect device to Wi-Fi network using ESP-Touch protocol',
+                textAlign: TextAlign.center,
+              ),
+              SizedBox.fromSize(size: const Size.fromHeight(40)),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'SSID (Network name)',
+                ),
+                controller: ssidController,
+              ),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                ),
+                obscureText: true,
+                controller: passwordController,
+              ),
+              SizedBox.fromSize(size: const Size.fromHeight(40)),
+              ElevatedButton(
+                onPressed: _startProvisioning,
+                child: const Text('Start provisioning'),
+              ),
+            ],
+          ),
+        ),
       ),
-      body: _wifiList.isEmpty
-          ? Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _wifiList.length,
-              itemBuilder: (context, index) {
-                final wifi = _wifiList[index];
-                return ListTile(
-                  title: Text(wifi?.ssid ?? "Unknown SSID"),
-                  subtitle: Text(wifi?.bssid ?? "Unknown BSSID"),
-                );
-              },
-            ),
     );
+  }
+
+  @override
+  void dispose() {
+    ssidController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 }
